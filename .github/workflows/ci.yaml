@@ -1,27 +1,26 @@
 name: CI-CD Docker Pipeline
-
+ 
 on:
   push:
     branches:
-      - main
+      - trivy
 
 env:
   IMAGE_NAME: ci-html
   IMAGE_TAG: 1.0.1
   DOCKER_REGISTRY: ${{ secrets.DOCKERHUB_USERNAME }}
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true   # <-- Force Node.js 24
 
 jobs:
 
   # ===============================
-  # JOB 1 - CI : BUILD + SCAN + PUSH
+  # JOB 1 - CI : BUILD + PUSH
   # ===============================
   ci:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout source code
-        uses: actions/checkout@v5   # <-- dernière version stable
+        uses: actions/checkout@v4
 
       - name: Display variables
         run: |
@@ -38,23 +37,43 @@ jobs:
         run: |
           docker build -t $DOCKER_REGISTRY/$IMAGE_NAME:$IMAGE_TAG .
 
-      - name: Verify Docker image
+      - name: Verify image
         run: |
           docker image ls | grep $IMAGE_NAME
-
 
       - name: Push Docker image
         run: |
           docker push $DOCKER_REGISTRY/$IMAGE_NAME:$IMAGE_TAG
 
   # ===============================
-  # JOB 2 - CD : DEPLOY (simulé)
+  # JOB 2 - SCAN TRIVY
   # ===============================
-  deploy:
+  scan-trivy:
     needs: ci
     runs-on: ubuntu-latest
 
     steps:
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@v0.20.0
+        with:
+          image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+          format: table
+          severity: CRITICAL,HIGH
+          vuln-type: os,library
+          ignore-unfixed: true
+
+  # ===============================
+  # JOB 3 - CD : DEPLOY
+  # ===============================
+  deploy:
+    needs: scan-trivy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Pull latest image
+        run: |
+          echo "Hello deploy"
+
       - name: Pull latest image
         run: |
           docker pull $DOCKER_REGISTRY/$IMAGE_NAME:$IMAGE_TAG
