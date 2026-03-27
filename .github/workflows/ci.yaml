@@ -9,6 +9,7 @@ env:
   IMAGE_NAME: ci-html
   IMAGE_TAG: 1.0.1
   DOCKER_REGISTRY: ${{ secrets.DOCKERHUB_USERNAME }}
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true   # <-- Force Node.js 24
 
 jobs:
 
@@ -20,7 +21,7 @@ jobs:
 
     steps:
       - name: Checkout source code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5   # <-- dernière version stable
 
       - name: Display variables
         run: |
@@ -42,7 +43,7 @@ jobs:
           docker image ls | grep $IMAGE_NAME
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@v0.2.0
+        uses: aquasecurity/trivy-action@v0.20.0   # <-- version stable
         with:
           image-ref: ${{ env.DOCKER_REGISTRY }}/{{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
           format: table
@@ -60,7 +61,7 @@ jobs:
   # ===============================
   deploy:
     needs: ci
-    runs-on: ubuntu-latest   # plus sûr que aws-runner si tu n’as pas un runner spécifique
+    runs-on: ubuntu-latest
 
     steps:
       - name: Pull latest image
